@@ -17,7 +17,7 @@
   /* maxOrderAgeDays: Orders older than this many days will be replaced; this should be somewhat lower than Bittrex's
    * maximum order age of 28 days, depending how often you run this script. */
   "maxOrderAgeDays": 7,
-    
+
   /* percentToReplaceEachRun: Of the orders old enough to be replaced, only this many percent will actually be replaced
    * each time the script is run. The purpose of this is to "stagger" the replacement orders across the month, in order
    * to avoid situations where some days will require much more work than others, depending on when you originally ran
@@ -32,5 +32,20 @@
   "replaceAllOrders": false,
 
   // concurrentTasks: How many API-related "tasks" to run concurrently
-  "concurrentTasks": 1
+  "concurrentTasks": 1,
+
+  //** Additional settings, you MAY want to modify ***
+
+  //SANE AND SIMPLE SAVINGS PLAN:
+  //original post: https://bitcointalk.org/index.php?topic=345065.0
+  //website: https://bitcoinsavingsplan.com
+
+  //The total amount to sell given as a decimal percentage 50% = 0.5
+  "rake": 0.5,
+
+  //Total number of sells
+  "numberOfCycles": 10,
+
+  //The sell price from initial investment. ex: cycleMultiplier: 2, rake: 0.5 sell half at double
+  "cycleMultiplier": 2
 }

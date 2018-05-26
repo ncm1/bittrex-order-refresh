@@ -16,6 +16,9 @@ var config = require('./lib/config'),
 program
     .option('--purge-open-orders', 'Cancel ALL open limit orders, and exit (CAUTION)')
     .option('--restore-orders <file>', 'Restore limit orders from the specified backup file, and exit')
+    .option('--sell-order')
+    .option('-c, --coin [value]', 'An optional value')
+    .option('-f, --float <v>', parseFloat)
     .parse(process.argv)
 
 bittrex.options({
@@ -153,7 +156,7 @@ bittrex.getopenorders({}, function(err, data) {
         })
         logger.info('%d limit orders older than %d days are old enough to be replaced...',
             staleOrders.length, config.maxOrderAgeDays)
-        
+
         var sampleSize = (staleOrders.length * (config.percentToReplaceEachRun / 100)) + 1   // Always do at least 1
         staleOrders = _.sampleSize(staleOrders, sampleSize)
         logger.warn('Of those, %d%% (%d limit orders) will be replaced this time around...',
@@ -192,3 +195,77 @@ bittrex.getopenorders({}, function(err, data) {
     })
 
 })
+
+if(program.sellOrder && program.float && program.coin){
+      logger.info("--show-coin-orders used");
+      logger.info(' program.float: %j', Math.round(program.float,-4))
+      logger.info(' program.coin: %j', program.coin);
+
+      getBalance(program.coin, function(data) {
+          console.log(data);
+
+          var tempQty    = data.Available;
+          var totQty     = data.Available;
+          var tempSell   = program.float;
+          var pair       = 'BTC-'+ program.coin
+          var i          = 1;
+          logger.info("program.float: %f", program.float);
+
+          var mat = [];
+          for(var i = 1; i <= config.numberOfCycles; i++) mat.push(i);
+
+
+          async.forEach( Object.keys(mat) , function(callback){
+            tempQty  = totQty * config.rake;
+            totQty   = totQty - tempQty;
+            tempSell = tempSell * config.cycleMultiplier;
+            logger.info("Sell %f %j for %f each", roundDown(tempQty, 7) ,program.coin,tempSell);
+            limitSellOrder(pair, roundDown(tempQty,7) ,tempSell, function(d){
+              console.log(d);
+            });
+
+
+          },function(err) {
+              if(err) throw err
+              console.log("calling callback");
+              callback();
+          });
+        });
+    }
+
+
+function getBalance(coin, callback){
+  bittrex.getbalance({ currency : coin },function(err, data){
+    if (err) {
+      return console.error(err);
+    }
+    callback(data.result);
+  });
+}
+
+function limitSellOrder(mPair,qty, rate, callback){
+     bittrex.tradesell({
+       MarketName: mPair,
+       OrderType: 'LIMIT',
+       Quantity: qty,
+       Rate: rate,
+       TimeInEffect: 'GOOD_TIL_CANCELLED', // supported options are 'IMMEDIATE_OR_CANCEL', 'GOOD_TIL_CANCELLED', 'FILL_OR_KILL'
+       ConditionType: 'NONE', // supported options are 'NONE', 'GREATER_THAN', 'LESS_THAN'
+       Target: 0, // used in conjunction with ConditionType
+     }, function( err, data ) {
+       if(err){
+	if(err.message == "MIN_TRADE_REQUIREMENT_NOT_MET") return console.log(err);
+        //try again
+	setTimeout(limitSellOrder(mPair,qty, rate, function(d){
+             console.log(d)
+           }),500);
+           return console.log(err)
+        }
+       callback( data );
+  });
+}
+
+function roundDown(number, decimals) {
+      decimals = decimals || 0;
+      return ( Math.floor( number * Math.pow(10, decimals) ) / Math.pow(10, decimals) );
+}

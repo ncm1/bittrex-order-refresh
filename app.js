@@ -46,7 +46,13 @@ var doCancelOrder = function(uuid, cb) {
         }
         var getOrderCb = function(err, data) {
             if (err || !data.success || !data.result) {
+		if(err.message == "MIN_TRADE_REQUIREMENT_NOT_MET"){
+		    logger.info("I'm in an IF STATEMENT!!! Fuck yea")
+		    process.exit(1)
+	        }
+		if(err.message == "Call to SellLimit was throttled. Try again in 60 seconds.") return;
                 logger.warn('Checking order %s failed: %s; %j; will retry...', uuid, data ? data.message : '', err)
+
                 setTimeout(getOrder, config.retryPeriodMs)
                 cb(new Error())
                 return
@@ -128,6 +134,10 @@ bittrex.getopenorders({}, function(err, data) {
             doCreateOrder(newOrderType, newOrder, function(err, newUuid) {
                 if (!err)
                     logger.debug('Order %s created.', newUuid)
+                if(err.message == "MIN_TRADE_REQUIREMENT_NOT_MET")
+ 		    return
+	 	if(err.message == "Call to SellLimit was throttled. Try again in 60 seconds.")
+  		    return
                 cb()
             })
         })
@@ -189,7 +199,10 @@ bittrex.getopenorders({}, function(err, data) {
                 })
             } else {
                 // else, skip it this run
-                cb()
+
+		if(err.message == "Call to SellLimit was throttled. Try again in 60 seconds.") return;
+		if(err.message == "MIN_TRADE_REQUIREMENT_NOT_MET") return;
+         	cb()
             }
         })
     })
@@ -209,7 +222,7 @@ if(program.sellOrder && program.float && program.coin){
           var tempSell   = program.float;
           var pair       = 'BTC-'+ program.coin
           var i          = 1;
-          logger.info("program.float: %f", program.float);
+          logger.info("program.float: %d", program.float);
 
           var mat = [];
           for(var i = 1; i <= config.numberOfCycles; i++) mat.push(i);
@@ -219,7 +232,7 @@ if(program.sellOrder && program.float && program.coin){
             tempQty  = totQty * config.rake;
             totQty   = totQty - tempQty;
             tempSell = tempSell * config.cycleMultiplier;
-            logger.info("Sell %f %j for %f each", roundDown(tempQty, 7) ,program.coin,tempSell);
+            logger.info("Sell %d %j for %d each", roundDown(tempQty, 7) ,program.coin,tempSell);
             limitSellOrder(pair, roundDown(tempQty,7) ,tempSell, function(d){
               console.log(d);
             });
@@ -255,10 +268,11 @@ function limitSellOrder(mPair,qty, rate, callback){
      }, function( err, data ) {
        if(err){
 	if(err.message == "MIN_TRADE_REQUIREMENT_NOT_MET") return console.log(err);
+	if(err.message == "Call to SellLimit was throttled. Try again in 60 seconds.") return;
         //try again
 	setTimeout(limitSellOrder(mPair,qty, rate, function(d){
              console.log(d)
-           }),500);
+           }),60000);
            return console.log(err)
         }
        callback( data );

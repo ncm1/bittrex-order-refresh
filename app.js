@@ -47,7 +47,6 @@ var doCancelOrder = function(uuid, cb) {
         var getOrderCb = function(err, data) {
             if (err || !data.success || !data.result) {
 		if(err.message == "MIN_TRADE_REQUIREMENT_NOT_MET"){
-		    logger.info("I'm in an IF STATEMENT!!! Fuck yea")
 		    process.exit(1)
 	        }
 		if(err.message == "Call to SellLimit was throttled. Try again in 60 seconds.") return;

@@ -176,7 +176,8 @@ bittrex.getopenorders({}, function(err, data) {
         contents.pop()
         contents.sort()
 
-        to_be_deleted = []
+        var to_be_deleted = []
+
         while(contents.length > config.maxBackups){
           to_be_deleted.push(contents.pop())
         }
@@ -185,10 +186,11 @@ bittrex.getopenorders({}, function(err, data) {
         logger.debug(to_be_deleted)
 
         while(to_be_deleted.length > 0){
-          path = config.backupDirectory + to_be_deleted.pop()
+          var path = config.backupDirectory + to_be_deleted.pop()
           fs.unlinkSync(path)
           logger.info("File at %s deleted successfully!", path)
         }
+        return
     });
 
     var staleOrders;

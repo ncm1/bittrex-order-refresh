@@ -169,6 +169,34 @@ bittrex.getopenorders({}, function(err, data) {
     jsonfile.writeFileSync(backupFile, limitOrders, { spaces: 2 })
     logger.info('All current limit orders backed up to file: %s', backupFile)
 
+    var contents = fs.readdirSync(config.backupDirectory, 'utf8')
+    if(contents.length > 0){
+      logger.debug("Read backup directory successfully!")
+      //contents.reverse()
+      //contents.pop()
+      contents.sort()
+
+      var to_be_deleted = []
+
+      while(contents.length > config.maxBackups){
+          to_be_deleted.push(contents.pop())
+      }
+      logger.debug("Will delete %d files in dir: %s", to_be_deleted.length, config.backupDirectory)
+      logger.debug("Files to be deleted: %s", to_be_deleted)
+
+      while(to_be_deleted.length > 0){
+        var path = config.backupDirectory + to_be_deleted.pop()
+        fs.unlinkSync(path)
+        logger.info("File at %s deleted successfully!", path)
+      }
+    }
+
+    else {
+      logger.debug("Backup directory empty!")
+    }
+
+
+
     var staleOrders;
     if (config.replaceAllOrders) {
         staleOrders = orders

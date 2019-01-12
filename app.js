@@ -46,11 +46,15 @@ var doCancelOrder = function(uuid, cb) {
         }
         var getOrderCb = function(err, data) {
             if (err || !data.success || !data.result) {
-		if(err.message == "MIN_TRADE_REQUIREMENT_NOT_MET"){
-		    logger.info("I'm in an IF STATEMENT!!! Fuck yea")
-		    process.exit(1)
-	        }
-		if(err.message == "Call to SellLimit was throttled. Try again in 60 seconds.") return;
+
+		            if(err.message == "MIN_TRADE_REQUIREMENT_NOT_MET"){
+		                logger.info(err.message)
+                    return
+	               }
+		             if(err.message == "Call to SellLimit was throttled. Try again in 60 seconds."){
+                   logger.info(err.message)
+                   return
+                 }
                 logger.warn('Checking order %s failed: %s; %j; will retry...', uuid, data ? data.message : '', err)
 
                 setTimeout(getOrder, config.retryPeriodMs)
@@ -135,9 +139,10 @@ bittrex.getopenorders({}, function(err, data) {
                 if (!err)
                     logger.debug('Order %s created.', newUuid)
                 if(err.message == "MIN_TRADE_REQUIREMENT_NOT_MET")
- 		    return
-	 	if(err.message == "Call to SellLimit was throttled. Try again in 60 seconds.")
-  		    return
+ 		               return
+	 	            if(err.message == "Call to SellLimit was throttled. Try again in 60 seconds.")
+  		            return
+
                 cb()
             })
         })
@@ -199,10 +204,7 @@ bittrex.getopenorders({}, function(err, data) {
                 })
             } else {
                 // else, skip it this run
-
-		if(err.message == "Call to SellLimit was throttled. Try again in 60 seconds.") return;
-		if(err.message == "MIN_TRADE_REQUIREMENT_NOT_MET") return;
-         	cb()
+         	      cb()
             }
         })
     })
@@ -210,12 +212,12 @@ bittrex.getopenorders({}, function(err, data) {
 })
 
 if(program.sellOrder && program.float && program.coin){
-      logger.info("--show-coin-orders used");
-      logger.info(' program.float: %j', Math.round(program.float,-4))
-      logger.info(' program.coin: %j', program.coin);
+      logger.info("--sell-order used");
+      logger.info(' program.float: %d', Math.round(program.float,-4))
+      logger.info(' program.coin: %d', program.coin);
 
       getBalance(program.coin, function(data) {
-          console.log(data);
+          logger.info(data);
 
           var tempQty    = data.Available;
           var totQty     = data.Available;
@@ -239,9 +241,10 @@ if(program.sellOrder && program.float && program.coin){
 
 
           },function(err) {
-              if(err) throw err
-              console.log("calling callback");
-              callback();
+              if(err){
+                logger.debug("Something Terrible Happened");
+                return
+              }
           });
         });
     }
@@ -267,14 +270,21 @@ function limitSellOrder(mPair,qty, rate, callback){
        Target: 0, // used in conjunction with ConditionType
      }, function( err, data ) {
        if(err){
-	if(err.message == "MIN_TRADE_REQUIREMENT_NOT_MET") return console.log(err);
-	if(err.message == "Call to SellLimit was throttled. Try again in 60 seconds.") return;
-        //try again
-	setTimeout(limitSellOrder(mPair,qty, rate, function(d){
+	        if(err.message == "MIN_TRADE_REQUIREMENT_NOT_MET"){
+            logger.debug("Min Trade Requirement error")
+            return console.log(err);
+          }
+	        if(err.message == "Call to SellLimit was throttled. Try again in 60 seconds."){
+            logger.debug("SellLimit was throttled!")
+            return console.log(err);
+          }
+          //try again
+	       setTimeout(limitSellOrder(mPair,qty, rate, function(d){
              console.log(d)
            }),60000);
            return console.log(err)
         }
+       logger.debug("Callback data:")
        callback( data );
   });
 }

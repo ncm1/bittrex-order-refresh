@@ -86,6 +86,16 @@ var doCreateOrder = function(newOrderType, newOrder, cb) {
     }
     var createOrderCb = function(err, data) {
         if (err || !data.success) {
+
+            if(err.message == "MIN_TRADE_REQUIREMENT_NOT_MET"){
+              logger.debug("Min Trade Requirement error")
+              return console.log(err);
+            }
+            if(err.message == "Call to SellLimit was throttled. Try again in 60 seconds."){
+              logger.debug("SellLimit was throttled!")
+              return console.log(err);
+            }
+
             logger.warn('Failed to create replacement %s order, %j: %s; %j; will retry...', newOrderType, newOrder, data ? data.message : '', err)
             setTimeout(createOrder, config.retryPeriodMs)
             cb(new Error())

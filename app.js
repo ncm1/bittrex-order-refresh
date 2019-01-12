@@ -46,16 +46,7 @@ var doCancelOrder = function(uuid, cb) {
         }
         var getOrderCb = function(err, data) {
             if (err || !data.success || !data.result) {
-		if(err.message == "MIN_TRADE_REQUIREMENT_NOT_MET"){
-		    process.exit(1)
-	        }
-		if(err.message == "Call to SellLimit was throttled. Try again in 60 seconds.") return;
-                logger.warn('Checking order %s failed: %s; %j; will retry...', uuid, data ? data.message : '', err)
 
-                setTimeout(getOrder, config.retryPeriodMs)
-                cb(new Error())
-                return
-            }
             if (data.result.IsOpen) {
                 logger.debug('Cancellation still pending for order %s; will retry...', uuid)
                 setTimeout(getOrder, config.retryPeriodMs)
@@ -134,9 +125,9 @@ bittrex.getopenorders({}, function(err, data) {
                 if (!err)
                     logger.debug('Order %s created.', newUuid)
                 if(err.message == "MIN_TRADE_REQUIREMENT_NOT_MET")
- 		    return
-	 	if(err.message == "Call to SellLimit was throttled. Try again in 60 seconds.")
-  		    return
+ 		                 return
+	 	            if(err.message == "Call to SellLimit was throttled. Try again in 60 seconds.")
+  		               return
                 cb()
             })
         })
@@ -266,17 +257,24 @@ function limitSellOrder(mPair,qty, rate, callback){
        Target: 0, // used in conjunction with ConditionType
      }, function( err, data ) {
        if(err){
-	if(err.message == "MIN_TRADE_REQUIREMENT_NOT_MET") return console.log(err);
-	if(err.message == "Call to SellLimit was throttled. Try again in 60 seconds.") return;
-        //try again
-	setTimeout(limitSellOrder(mPair,qty, rate, function(d){
+
+         min_trade_msg  = "MIN_TRADE_REQUIREMENT_NOT_MET"
+         sell_limit_msg = "Call to SellLimit was throttled. Try again in 60 seconds."
+	       if(err.message == "MIN_TRADE_REQUIREMENT_NOT_MET")
+            return console.log(err);
+	       if(err.message == "Call to SellLimit was throttled. Try again in 60 seconds.")
+            return;
+
+         //try again
+         if(err.message != min_trade_msg && err.message != sell_limit_msg)
+	        setTimeout(limitSellOrder(mPair,qty, rate, function(d){
              console.log(d)
            }),60000);
            return console.log(err)
         }
        callback( data );
-  });
-}
+     });
+  }
 
 function roundDown(number, decimals) {
       decimals = decimals || 0;

@@ -288,10 +288,7 @@ function limitSellOrder(mPair,qty, rate, callback){
             logger.debug("SellLimit was throttled!")
             return console.log(err);
           }
-          //try again
-	       setTimeout(limitSellOrder(mPair,qty, rate, function(d){
-             console.log(d)
-           }),60000);
+           // No need to try again
            return console.log(err)
         }
        logger.debug("Callback data:")

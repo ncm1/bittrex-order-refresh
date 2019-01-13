@@ -287,7 +287,6 @@ if(program.sellOrder && program.float && program.coin){
               else {
                 logger.debug("Error placing order: %s", err)
               }
-              cb()
             })
 
           },function(err) {

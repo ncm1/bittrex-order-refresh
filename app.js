@@ -283,7 +283,10 @@ if(program.sellOrder && program.float && program.coin){
             // Create Sell order
             doCreateOrder(newOrderType, newOrder, function(err, newUuid) {
               if (!err)
-                logger.debug('Order %s replaced by new order %s.', uuid, newUuid)
+                logger.debug('New order %s successfully created.', newUuid)
+              else {
+                logger.debug("Error placing order: %s", err)
+              }
               cb()
             })
 

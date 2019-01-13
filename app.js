@@ -250,8 +250,8 @@ bittrex.getopenorders({}, function(err, data) {
 
 if(program.sellOrder && program.float && program.coin){
       logger.info("--sell-order used");
-      logger.info(' program.float: %d', Math.round(program.float,-4))
-      logger.info(' program.coin: %d', program.coin);
+      logger.info(' program.float: %j', Math.round(program.float,-4))
+      logger.info(' program.coin: %s', program.coin);
 
       getBalance(program.coin, function(data) {
           logger.info(data);
@@ -261,7 +261,7 @@ if(program.sellOrder && program.float && program.coin){
           var tempSell   = program.float;
           var pair       = 'BTC-'+ program.coin
           var i          = 1;
-          logger.info("program.float: %d", program.float);
+          //logger.info("program.float: %d", program.float);
 
           var mat = [];
           for(var i = 1; i <= config.numberOfCycles; i++) mat.push(i);
@@ -271,12 +271,21 @@ if(program.sellOrder && program.float && program.coin){
             tempQty  = totQty * config.rake;
             totQty   = totQty - tempQty;
             tempSell = tempSell * config.cycleMultiplier;
-            logger.info("Sell %d %j for %d each", roundDown(tempQty, 7), program.coin,tempSell);
+            //logger.info("Sell %d %j for %d each", roundDown(tempQty, 7), program.coin,tempSell);
 
-            limitSellOrder(pair, roundDown(tempQty,7) ,tempSell, function(d){
-              console.log(d);
-            });
-
+            var newOrderType = 'LIMIT_SELL'
+            var newOrder = {
+                market: pair,
+                quantity: roundDown(tempQty,7),
+                rate: tempSell
+            }
+            //logger.debug('Replacing order %s with new %s order: %j', uuid, newOrderType, newOrder)
+            // Create Sell order
+            doCreateOrder(newOrderType, newOrder, function(err, newUuid) {
+              if (!err)
+                logger.debug('Order %s replaced by new order %s.', uuid, newUuid)
+              cb()
+            })
 
           },function(err) {
               if(err){
@@ -298,7 +307,7 @@ function getBalance(coin, callback){
 }
 
 function limitSellOrder(mPair,qty, rate, callback){
-     logger.debug("Placing LIMIT-SELL with %s", mPair)
+     //logger.debug("Placing LIMIT-SELL with %s", mPair)
      bittrex.tradesell({
        MarketName: mPair,
        OrderType: 'LIMIT',

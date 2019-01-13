@@ -301,7 +301,7 @@ function getBalance(coin, callback){
 function limitSellOrder(mPair,qty, rate, callback){
      bittrex.selllimit({
        MarketName: mPair,
-       OrderType: 'LIMIT',
+       OrderType: 'LIMIT_SELL',
        Quantity: qty,
        Rate: rate,
        TimeInEffect: 'GOOD_TIL_CANCELLED', // supported options are 'IMMEDIATE_OR_CANCEL', 'GOOD_TIL_CANCELLED', 'FILL_OR_KILL'

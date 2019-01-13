@@ -299,7 +299,7 @@ function getBalance(coin, callback){
 }
 
 function limitSellOrder(mPair,qty, rate, callback){
-     bittrex.tradesell({
+     bittrex.selllimit({
        MarketName: mPair,
        OrderType: 'LIMIT',
        Quantity: qty,

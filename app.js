@@ -195,8 +195,6 @@ bittrex.getopenorders({}, function(err, data) {
       logger.debug("Backup directory empty!")
     }
 
-
-
     var staleOrders;
     if (config.replaceAllOrders) {
         staleOrders = orders
@@ -273,7 +271,8 @@ if(program.sellOrder && program.float && program.coin){
             tempQty  = totQty * config.rake;
             totQty   = totQty - tempQty;
             tempSell = tempSell * config.cycleMultiplier;
-            logger.info("Sell %d %j for %d each", roundDown(tempQty, 7) ,program.coin,tempSell);
+            logger.info("Sell %d %j for %d each", roundDown(tempQty, 7), program.coin,tempSell);
+
             limitSellOrder(pair, roundDown(tempQty,7) ,tempSell, function(d){
               console.log(d);
             });
@@ -299,9 +298,10 @@ function getBalance(coin, callback){
 }
 
 function limitSellOrder(mPair,qty, rate, callback){
-     bittrex.selllimit({
+     logger.debug("Placing LIMIT-SELL with %s", mPair)
+     bittrex.tradesell({
        MarketName: mPair,
-       OrderType: 'LIMIT_SELL',
+       OrderType: 'LIMIT',
        Quantity: qty,
        Rate: rate,
        TimeInEffect: 'GOOD_TIL_CANCELLED', // supported options are 'IMMEDIATE_OR_CANCEL', 'GOOD_TIL_CANCELLED', 'FILL_OR_KILL'
@@ -318,7 +318,7 @@ function limitSellOrder(mPair,qty, rate, callback){
             return console.log(err);
           }
            // No need to try again
-           return console.log(err)
+           return logger.warn(err)
         }
        logger.debug("Callback data:")
        callback( data );

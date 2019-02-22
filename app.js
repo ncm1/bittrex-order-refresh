@@ -179,7 +179,7 @@ bittrex.getopenorders({}, function(err, data) {
       var to_be_deleted = []
 
       while(contents.length > config.maxBackups){
-          to_be_deleted.push(contents[0])
+          to_be_deleted.push(contents.shift())
       }
       logger.debug("Will delete %d files in dir: %s", to_be_deleted.length, config.backupDirectory)
       logger.debug("Files to be deleted: %s", to_be_deleted)

@@ -50,10 +50,13 @@ var doCancelOrder = function(uuid, cb) {
 
 		            if(err.message == "MIN_TRADE_REQUIREMENT_NOT_MET"){
 		                logger.info(err.message)
+                    cb(new Error()) //Fatal, shouldn't  retry
                     return
 	               }
 		             if(err.message == "Call to SellLimit was throttled. Try again in 60 seconds."){
                    logger.info(err.message)
+                   cb(new Error())
+                   setTimeout(cb(), 65000)
                    return
                  }
                 logger.warn('Checking order %s failed: %s; %j; will retry...', uuid, data ? data.message : '', err)
@@ -90,11 +93,18 @@ var doCreateOrder = function(newOrderType, newOrder, cb) {
 
             if(err.message == "MIN_TRADE_REQUIREMENT_NOT_MET"){
               logger.debug("Min Trade Requirement error")
-              return console.log(err);
+              cb(new Error())
+              //return console.log(err);
             }
             if(err.message == "Call to SellLimit was throttled. Try again in 60 seconds."){
               logger.debug("SellLimit was throttled!")
-              return console.log(err);
+              return console.log(err); // fatal
+            }
+
+            if(err.message == "INSUFFICIENT_FUNDS"){
+              logger.debug("Insufficient funds error!")
+              cb(new Error())
+              //return console.log(err)
             }
 
             logger.warn('Failed to create replacement %s order, %j: %s; %j; will retry...', newOrderType, newOrder, data ? data.message : '', err)
@@ -103,9 +113,10 @@ var doCreateOrder = function(newOrderType, newOrder, cb) {
             return
         }
 
-        cb(null, data.result.uuid)
+        cb(data, data.result.uuid)
+        //cb(new Error())
     }
-    setTimeout(createOrder, 0)
+    setTimeout(createOrder, 15000)
 }
 
 bittrex.getopenorders({}, function(err, data) {

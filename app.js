@@ -113,7 +113,7 @@ var doCreateOrder = function(newOrderType, newOrder, cb) {
             return
         }
 
-        cb(data, data.result.uuid)
+        cb(null, data.result.uuid)
         //cb(new Error())
     }
     setTimeout(createOrder, 15000)

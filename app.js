@@ -17,8 +17,9 @@ var config = require('./lib/config'),
 program
     .option('--purge-open-orders', 'Cancel ALL open limit orders, and exit (CAUTION)')
     .option('--restore-orders <file>', 'Restore limit orders from the specified backup file, and exit')
-    .option('--sell-order')
-    .option('-c, --coin [value]', 'An optional value')
+    .option('--sell-order-list <file>','A list of coins to be sold with their weighted averages')
+    .option('--sell-order', 'Used to place multiple sell orders of a coin, i.e.: --sell-order -c LTC -f 0.02')
+    .option('-c, --coin [value]', 'The name of the cryptocurrency, not the market i.e. LTC')
     .option('-f, --float <v>', parseFloat)
     .parse(process.argv)
 
@@ -48,19 +49,7 @@ var doCancelOrder = function(uuid, cb) {
         var getOrderCb = function(err, data) {
             if (err || !data.success || !data.result) {
 
-	        if(err.message == "MIN_TRADE_REQUIREMENT_NOT_MET"){
-		    logger.info(err.message)
-                    cb(new Error()) //Fatal, shouldn't  retry
-                    return
-	        }
-	        if(err.message == "Call to SellLimit was throttled. Try again in 60 seconds."){
-                   logger.info(err.message)
-                   cb(new Error())
-                   setTimeout(cb(), 65000)
-                   return
-                 }
-                
-	        logger.warn('Checking order %s failed: %s; %j; will retry...', uuid, data ? data.message : '', err)
+	             logger.warn('Checking order %s failed: %s; %j; will retry...', uuid, data ? data.message : '', err)
 
                 setTimeout(getOrder, config.retryPeriodMs)
                 cb(new Error())
@@ -93,21 +82,28 @@ var doCreateOrder = function(newOrderType, newOrder, cb) {
         if (err || !data.success) {
 
             if(err.message == "MIN_TRADE_REQUIREMENT_NOT_MET"){
-              logger.debug("Min Trade Requirement error")
+              logger.warn("Min Trade Requirement error, Skipping...")
               cb(new Error())
               return
-            }
+            }//This will never be valid, don't retry here
+
             if(err.message == "Call to SellLimit was throttled. Try again in 60 seconds."){
-              logger.debug("SellLimit was throttled! Skipping...")
-	      cb(new Error())
+              logger.warn("SellLimit was throttled! Skipping...")
+	             cb(new Error())
               return // fatal
-            }
+            }//@TODO: Wait 2-3x the 60 seconds, for now don't retry
 
             if(err.message == "INSUFFICIENT_FUNDS"){
-              logger.debug("Insufficient funds error!")
+              logger.warn("Insufficient funds error! Skipping...")
               cb(new Error())
               return
-            }
+            }//not enough funds, don't retry
+
+            if(err.message == "INVALID_MARKET"){
+              logger.warn("Invalid Market, Skipping...")
+              cb(new Error())
+              return
+            }//invalid csv format, don't retry
 
             logger.warn('Failed to create replacement %s order, %j: %s; %j; will retry...', newOrderType, newOrder, data ? data.message : '', err)
             setTimeout(createOrder, config.retryPeriodMs)
@@ -118,7 +114,7 @@ var doCreateOrder = function(newOrderType, newOrder, cb) {
         cb(null, data.result.uuid)
         //cb(new Error())
     }
-    setTimeout(createOrder, 1500)
+    setTimeout(createOrder, 3000)
 }
 
 bittrex.getopenorders({}, function(err, data) {
@@ -160,12 +156,32 @@ bittrex.getopenorders({}, function(err, data) {
 
             logger.debug('Creating %s order: %j', newOrderType, newOrder)
             doCreateOrder(newOrderType, newOrder, function(err, newUuid) {
-                if (!err)
-                    logger.debug('Order %s created.', newUuid)
-                if(err.message == "MIN_TRADE_REQUIREMENT_NOT_MET")
- 		               return
-	 	            if(err.message == "Call to SellLimit was throttled. Try again in 60 seconds.")
-  		            return
+                    if (!err)
+                        logger.debug('Order %s created.', newUuid)
+
+                    if (err.message == "MIN_TRADE_REQUIREMENT_NOT_MET"){
+                        logger.warn("Min Trade Requirement error, Skipping...")
+                        cb(new Error())
+                        return
+                    }//This will never be valid, don't retry here
+
+                    if(err.message == "Call to SellLimit was throttled. Try again in 60 seconds."){
+                          logger.warn("SellLimit was throttled! Skipping...")
+                          cb(new Error())
+                          return // fatal
+                    }//@TODO: Wait 2-3x the 60 seconds, for now don't retry
+
+                    if(err.message == "INSUFFICIENT_FUNDS"){
+                        logger.warn("Insufficient funds error! Skipping...")
+                        cb(new Error())
+                        return
+                    }//not enough funds, don't retry
+
+                    if(err.message == "INVALID_MARKET"){
+                        logger.warn("Invalid Market, Skipping...")
+                        cb(new Error())
+                        return
+                    }//invalid csv format, don't retry
 
                 cb()
             })
@@ -185,8 +201,7 @@ bittrex.getopenorders({}, function(err, data) {
     var contents = fs.readdirSync(config.backupDirectory, 'utf8')
     if(contents.length > 0){
       logger.debug("Read backup directory successfully!")
-      //contents.reverse()
-      //contents.pop()
+
       contents.sort()
 
       var to_be_deleted = []
@@ -263,7 +278,7 @@ bittrex.getopenorders({}, function(err, data) {
 
 if(program.sellOrder && program.float && program.coin){
       logger.info("--sell-order used");
-      logger.info(' program.float: %j', Math.round(program.float,-4))
+      logger.info(' program.float: %d', Math.round(program.float,-4))
       logger.info(' program.coin: %s', program.coin);
 
       getBalance(program.coin, function(data) {
@@ -284,7 +299,7 @@ if(program.sellOrder && program.float && program.coin){
             tempQty  = totQty * config.rake;
             totQty   = totQty - tempQty;
             tempSell = tempSell * config.cycleMultiplier;
-            //logger.info("Sell %d %j for %d each", roundDown(tempQty, 7), program.coin,tempSell);
+            logger.info("Sell %d %j for %d each", roundDown(tempQty, 7), program.coin,tempSell);
 
             var newOrderType = 'LIMIT_SELL'
             var newOrder = {
@@ -298,7 +313,7 @@ if(program.sellOrder && program.float && program.coin){
               if (!err)
                 logger.debug('New order %s successfully created.', newUuid)
               else {
-                logger.debug("Error placing order: %s", err)
+                logger.debug("Error placing order: %s", err.message)
               }
             })
 
@@ -310,6 +325,68 @@ if(program.sellOrder && program.float && program.coin){
           });
         });
     }
+
+//sell-order-list with path
+if(program.sellOrderList){
+
+  logger.info("--sell-order--list used");
+
+  var restoreOrders = jsonfile.readFileSync(program.sellOrderList)
+  logger.info('Read %d rows in file successfully...', restoreOrders.length)
+
+  async.map(restoreOrders, function (o, cb) {
+
+      logger.info(o.Coin)
+      logger.info(o.Weight)
+
+      getBalance(o.Coin, function(data) {
+
+        logger.info(o.Coin)
+        logger.info(data)
+        logger.info(o.Weight)
+
+        var tempQty    = data.Available
+        var totQty     = data.Available
+        var tempSell   = o.Weight
+        var pair       = 'BTC-'+ o.Coin
+        var i          = 1
+        //logger.info("program.float: %d", program.float)
+
+        var mat = []
+        for(var i = 1; i <= config.numberOfCycles; i++) mat.push(i);
+
+
+        async.forEach( Object.keys(mat) , function(callback){
+              tempQty  = totQty * config.rake;
+              totQty   = totQty - tempQty;
+              tempSell = tempSell * config.cycleMultiplier;
+              logger.info("Sell %d %j for %d each", roundDown(tempQty, 7),o.Coin,tempSell);
+
+              var newOrderType = 'LIMIT_SELL'
+              var newOrder = {
+                market: pair,
+                quantity: roundDown(tempQty,7),
+                rate: tempSell
+              }
+              //logger.debug('Replacing order %s with new %s order: %j', uuid, newOrderType, newOrder)
+              // Create Sell order
+              doCreateOrder(newOrderType, newOrder, function(err, newUuid) {
+                if (!err)
+                  logger.debug('New order %s successfully created for %s.', newUuid, o.Coin)
+                else
+                  logger.debug("Error placing order: %s", err)
+              })
+
+            },function(err) {
+                if(err){
+                  logger.debug("Something Terrible Happened");
+                  return
+                }
+              });
+      })//end get balance
+  })//
+} //end: sell-order-list with path
+// @TODO: Make this a node like funtion
 
 
 function getBalance(coin, callback){
@@ -333,21 +410,21 @@ function limitSellOrder(mPair,qty, rate, callback){
        Target: 0, // used in conjunction with ConditionType
      }, function( err, data ) {
        if(err){
-	        if(err.message == "MIN_TRADE_REQUIREMENT_NOT_MET"){
+	        /*if(err.message == "MIN_TRADE_REQUIREMENT_NOT_MET"){
             logger.debug("Min Trade Requirement error")
             return console.log(err);
           }
 	        if(err.message == "Call to SellLimit was throttled. Try again in 60 seconds."){
             logger.debug("SellLimit was throttled!")
-            return console.log(err);
-          }
+            return console.log(err)
+          }*/
            // No need to try again
            return logger.warn(err)
         }
        logger.debug("Callback data:")
        callback( data );
-  });
-}
+  })//end tradesell
+}//end limitSellOrder
 
 function roundDown(number, decimals) {
       decimals = decimals || 0;
